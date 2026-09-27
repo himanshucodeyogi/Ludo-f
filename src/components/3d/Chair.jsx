@@ -12,12 +12,12 @@ import { COLOR_PALETTE } from '../../constants/boardCoordinates';
 export function Chair({ color, position = [0, 0, 0], rotationY = 0, isCurrentTurn = false }) {
   const theme = COLOR_PALETTE[color] || { primary: '#EF4444', glow: '#F87171' };
 
-  const seatWidth = 3.6;
-  const seatDepth = 3.4;
-  const seatThickness = 0.55;
+  const seatWidth = 4.2;
+  const seatDepth = 4.0;
+  const seatThickness = 0.6;
   const legHeight = 4.8;
-  const legRadius = 0.16;
-  const backHeight = 4.2;
+  const legRadius = 0.18;
+  const backHeight = 4.8;
 
   return (
     <group position={position} rotation={[0, rotationY, 0]}>

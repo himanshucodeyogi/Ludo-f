@@ -11,7 +11,7 @@ export function Table({ boardBottomY = -0.5, floorY = TABLE_FLOOR_Y }) {
   const legTopRadius = 0.72;
   const legBottomRadius = 0.52;
   const legY = boardBottomY - tableTopThickness - legHeight / 2;
-  const legSpread = 9.8;
+  const legSpread = 6.8;
 
   return (
     <group>
@@ -19,7 +19,7 @@ export function Table({ boardBottomY = -0.5, floorY = TABLE_FLOOR_Y }) {
       {/* 1. Main Polished Wooden Tabletop                         */}
       {/* ======================================================== */}
       <mesh position={[0, tableTopY, 0]} receiveShadow castShadow>
-        <boxGeometry args={[24, tableTopThickness, 24]} />
+        <boxGeometry args={[18, tableTopThickness, 18]} />
         <meshStandardMaterial
           color="#2A170E" // Deep rich mahogany / walnut wood
           roughness={0.28}
@@ -29,7 +29,7 @@ export function Table({ boardBottomY = -0.5, floorY = TABLE_FLOOR_Y }) {
 
       {/* Decorative Beveled Wooden Tabletop Edge / Rim */}
       <mesh position={[0, tableTopY - 0.08, 0]} receiveShadow>
-        <boxGeometry args={[24.6, tableTopThickness * 0.75, 24.6]} />
+        <boxGeometry args={[18.5, tableTopThickness * 0.75, 18.5]} />
         <meshStandardMaterial
           color="#1A0D08" // Darker edge accent
           roughness={0.4}
@@ -39,7 +39,7 @@ export function Table({ boardBottomY = -0.5, floorY = TABLE_FLOOR_Y }) {
 
       {/* Tabletop Inlay Accent Stripe (Golden brass inlay line) */}
       <mesh position={[0, boardBottomY + 0.002, 0]} receiveShadow>
-        <ringGeometry args={[10.5, 10.6, 64]} />
+        <ringGeometry args={[8.0, 8.1, 64]} />
         <meshStandardMaterial
           color="#D4AF37"
           roughness={0.3}
@@ -49,7 +49,7 @@ export function Table({ boardBottomY = -0.5, floorY = TABLE_FLOOR_Y }) {
 
       {/* Under-table Apron Frame */}
       <mesh position={[0, boardBottomY - tableTopThickness - 0.35, 0]} receiveShadow castShadow>
-        <boxGeometry args={[21.5, 0.7, 21.5]} />
+        <boxGeometry args={[15.5, 0.7, 15.5]} />
         <meshStandardMaterial
           color="#1E100A"
           roughness={0.5}

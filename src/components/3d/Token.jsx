@@ -78,7 +78,7 @@ export function Token({
         posX = THREE.MathUtils.lerp(start.x, target.x, t2);
         posZ = THREE.MathUtils.lerp(start.z, target.z, t2);
         // Parabolic arc lift matching hand height
-        posY = THREE.MathUtils.lerp(start.y, target.y, t2) + Math.sin(t2 * Math.PI) * 1.8;
+        posY = THREE.MathUtils.lerp(start.y, target.y, t2) + Math.sin(t2 * Math.PI) * 1.6;
       } else if (p < 0.88) {
         // Phase 3: NPC hand lowers pawn onto target tile
         const t3 = (p - 0.78) / 0.1;

@@ -12,28 +12,28 @@ import { PLAYER_COLORS } from '../../constants/boardCoordinates';
 
 // Camera viewpoints placing player's home base right in front
 const CAMERA_PERSPECTIVES = {
-  red: [-10, 16, -10],
-  green: [10, 16, -10],
-  yellow: [10, 16, 10],
-  blue: [-10, 16, 10],
+  red: [-8.5, 14.5, -8.5],
+  green: [8.5, 14.5, -8.5],
+  yellow: [8.5, 14.5, 8.5],
+  blue: [-8.5, 14.5, 8.5],
 };
 
 // Chairs arranged at 4 corners facing their respective home base and board center
 const CHAIR_CONFIGS = {
   red: {
-    position: [-11.8, TABLE_FLOOR_Y, -11.8],
+    position: [-9.4, TABLE_FLOOR_Y, -9.4],
     rotationY: Math.PI / 4, // Faces towards [0, 0, 0]
   },
   green: {
-    position: [11.8, TABLE_FLOOR_Y, -11.8],
+    position: [9.4, TABLE_FLOOR_Y, -9.4],
     rotationY: -Math.PI / 4,
   },
   yellow: {
-    position: [11.8, TABLE_FLOOR_Y, 11.8],
+    position: [9.4, TABLE_FLOOR_Y, 9.4],
     rotationY: -Math.PI * 0.75,
   },
   blue: {
-    position: [-11.8, TABLE_FLOOR_Y, 11.8],
+    position: [-9.4, TABLE_FLOOR_Y, 9.4],
     rotationY: Math.PI * 0.75,
   },
 };
