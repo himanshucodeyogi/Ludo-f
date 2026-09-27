@@ -2,7 +2,11 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { io } from 'socket.io-client';
 import confetti from 'canvas-confetti';
 
-const SOCKET_SERVER_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
+const SOCKET_SERVER_URL =
+  import.meta.env.VITE_BACKEND_URL ||
+  (typeof window !== 'undefined'
+    ? `${window.location.protocol}//${window.location.hostname}:4000`
+    : 'http://localhost:4000');
 
 export function useLudoSocket() {
   const socketRef = useRef(null);
