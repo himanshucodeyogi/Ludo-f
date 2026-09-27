@@ -5,7 +5,7 @@ import { COLOR_PALETTE, getToken3DPosition } from '../../constants/boardCoordina
 import { TABLE_FLOOR_Y } from './Table';
 
 /**
- * 2-Segment Inverse Kinematics with twist-free orthonormal orientation
+ * 2-Segment Inverse Kinematics with twist-free orthonormal frame
  */
 function solveIK(S, H, L1, L2, poleDir) {
   const toHand = new THREE.Vector3().subVectors(H, S);
@@ -13,17 +13,15 @@ function solveIK(S, H, L1, L2, poleDir) {
   const dir = dist > 0.001 ? toHand.clone().divideScalar(dist) : new THREE.Vector3(0, 0, 1);
 
   if (dist >= L1 + L2) {
-    // Fully extended towards target
     const E = S.clone().addScaledVector(dir, L1);
-    return { E, L1Actual: L1, L2Actual: Math.max(L2, dist - L1), dir };
+    return { E, L1Actual: L1, L2Actual: Math.max(L2, dist - L1) };
   }
 
-  // Law of Cosines for interior triangle angles
+  // Law of Cosines
   const d1 = (L1 * L1 - L2 * L2 + dist * dist) / (2 * dist);
   const hSq = Math.max(0, L1 * L1 - d1 * d1);
   const h = Math.sqrt(hSq);
 
-  // Perpendicular bend direction using pole vector (outward and slightly down)
   let perp = new THREE.Vector3().crossVectors(dir, poleDir);
   if (perp.lengthSq() < 0.001) {
     perp = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0));
@@ -31,12 +29,9 @@ function solveIK(S, H, L1, L2, poleDir) {
   const bendNorm = new THREE.Vector3().crossVectors(perp, dir).normalize();
 
   const E = S.clone().addScaledVector(dir, d1).addScaledVector(bendNorm, h);
-  return { E, L1Actual: L1, L2Actual: L2, dir };
+  return { E, L1Actual: L1, L2Actual: L2 };
 }
 
-/**
- * Positions and orients a cylinder between two points using a twist-free orthonormal frame
- */
 const tmpMid = new THREE.Vector3();
 const tmpDir = new THREE.Vector3();
 const tmpSide = new THREE.Vector3();
@@ -50,11 +45,9 @@ function orientBone(mesh, pStart, pEnd, defaultLen, pole) {
   if (len < 0.001) return;
   tmpDir.divideScalar(len);
 
-  // Midpoint
   tmpMid.addVectors(pStart, pEnd).multiplyScalar(0.5);
   mesh.position.copy(tmpMid);
 
-  // Orthonormal basis with cylinder along Y axis
   tmpSide.crossVectors(tmpDir, pole).normalize();
   if (tmpSide.lengthSq() < 0.001) {
     tmpSide.set(1, 0, 0);
@@ -67,8 +60,9 @@ function orientBone(mesh, pStart, pEnd, defaultLen, pole) {
 }
 
 /**
- * 3D Human Avatar (NPC) seated on chair
- * Large, expressive, athletic proportions with realistic overhand pawn pickup & placement
+ * 3D Stylized Human Avatar (NPC)
+ * Features modern streetwear, glowing esports gaming headset, animated face,
+ * and high-polish overhand pawn pickup, flight, and placement.
  */
 export function HumanNPC({
   color,
@@ -79,7 +73,7 @@ export function HumanNPC({
 }) {
   const rootGroupRef = useRef();
   const spineGroupRef = useRef();
-  const headRef = useRef();
+  const headGroupRef = useRef();
 
   // Arm IK meshes
   const rightShoulderRef = useRef();
@@ -91,11 +85,10 @@ export function HumanNPC({
 
   const theme = COLOR_PALETTE[color] || { primary: '#EF4444', glow: '#F87171' };
 
-  // Animation timeline state: 0 (start reach) to 1 (finished placing and returned)
+  // Timeline state: 0 (start reach) to 1 (finished)
   const animTime = useRef(1);
   const currentAction = useRef(null);
 
-  // Trigger pickup animation when moveAction changes for this color
   useEffect(() => {
     if (moveAction && moveAction.color === color) {
       currentAction.current = moveAction;
@@ -104,35 +97,32 @@ export function HumanNPC({
   }, [moveAction, color]);
 
   // Seated dimensions relative to chair base
-  const seatSurfaceY = 5.4; // Top surface of chair cushion
+  const seatSurfaceY = 2.4; // Top surface of chair cushion
 
-  // Arm segment lengths (enlarged for substantial reach)
-  const L1 = 3.6;
-  const L2 = 3.2;
+  // Arm segment lengths
+  const L1 = 2.8;
+  const L2 = 2.5;
 
   useFrame((state, delta) => {
     const time = state.clock.getElapsedTime();
 
-    // Resting hand position on the table next to the board
-    const restHand = new THREE.Vector3(1.5, seatSurfaceY + 2.0, 1.8);
+    // Resting hand pose on the table surface next to the player's home base
+    const restHand = new THREE.Vector3(1.3, seatSurfaceY + 2.05, 1.4);
     let targetHandLocal = restHand.clone();
     let reachFactor = 0;
     let fingerGrip = 0;
 
     if (animTime.current < 1) {
-      // 1.45 seconds total duration for reach -> pick -> move -> place -> return
-      animTime.current = Math.min(animTime.current + delta * 0.69, 1);
+      animTime.current = Math.min(animTime.current + delta * 0.72, 1);
       const p = animTime.current;
 
       const prevStep = currentAction.current?.previousStep ?? -1;
       const newStep = currentAction.current?.newStep ?? 0;
       const tokenIdx = currentAction.current?.tokenIndex ?? 0;
 
-      // World positions of start and destination pawns
       const [sx, sy, sz] = getToken3DPosition(color, tokenIdx, prevStep);
       const [tx, ty, tz] = getToken3DPosition(color, tokenIdx, newStep);
 
-      // Convert world positions to NPC root local coordinate space
       const startLocal = new THREE.Vector3(sx, sy, sz);
       const targetLocal = new THREE.Vector3(tx, ty, tz);
       if (rootGroupRef.current) {
@@ -149,37 +139,39 @@ export function HumanNPC({
       if (p < 0.22) {
         // Phase 1: Torso leans forward, hand glides down to pawn crown from above
         const t1 = p / 0.22;
-        reachFactor = Math.sin(t1 * Math.PI * 0.5);
-        fingerGrip = 0; // Fingers open ready to clasp
-        // Hover slightly higher as approaching
+        const ease = Math.sin(t1 * Math.PI * 0.5); // Smooth ease-out
+        reachFactor = ease;
+        fingerGrip = 0; // Open hand
         const approachPos = startLocal.clone();
-        approachPos.y += (1 - t1) * 0.6;
-        targetHandLocal.lerpVectors(restHand, approachPos, reachFactor);
+        approachPos.y += (1 - t1) * 0.5; // Arrives from slightly above
+        targetHandLocal.lerpVectors(restHand, approachPos, ease);
       } else if (p < 0.78) {
-        // Phase 2: Grasp pawn, lift up into parabolic arc, fly smoothly to target tile
+        // Phase 2: Grasp pawn, lift up into parabolic flight arc, carry to target tile
         const t2 = (p - 0.22) / 0.56;
         reachFactor = 1;
-        fingerGrip = 1; // Fingers firmly curled around pawn crown
+        fingerGrip = 1; // Clasp crown
         targetHandLocal.lerpVectors(startLocal, targetLocal, t2);
         // High parabolic arc lift
-        targetHandLocal.y += Math.sin(t2 * Math.PI) * 1.6;
+        targetHandLocal.y += Math.sin(t2 * Math.PI) * 1.5;
       } else if (p < 0.88) {
-        // Phase 3: Lower pawn gently onto destination tile and release
+        // Phase 3: Lower pawn firmly onto destination tile and release
         const t3 = (p - 0.78) / 0.1;
-        reachFactor = 1 - t3 * 0.25;
-        fingerGrip = 1 - t3; // Fingers releasing
+        reachFactor = 1 - t3 * 0.2;
+        fingerGrip = 1 - t3; // Unclasp fingers
         targetHandLocal.copy(targetLocal);
-        targetHandLocal.y += (1 - t3) * 0.12;
+        // Small landing micro-bounce
+        targetHandLocal.y += Math.sin(t3 * Math.PI) * 0.08;
       } else {
-        // Phase 4: Torso leans back, hand returns to comfortable resting pose
+        // Phase 4: Torso leans back, hand smoothly returns to rest
         const t4 = (p - 0.88) / 0.12;
-        reachFactor = 1 - t4;
+        const easeReturn = Math.sin(t4 * Math.PI * 0.5);
+        reachFactor = 1 - easeReturn;
         fingerGrip = 0;
-        targetHandLocal.lerpVectors(targetLocal, restHand, t4);
+        targetHandLocal.lerpVectors(targetLocal, restHand, easeReturn);
       }
     } else {
-      // Idle resting pose with subtle natural breathing
-      const breath = Math.sin(time * 2.2 + (color === 'red' ? 0 : 1.5)) * 0.04;
+      // Idle breathing and resting pose
+      const breath = Math.sin(time * 2.5 + (color === 'red' ? 0 : 1.5)) * 0.03;
       targetHandLocal.y += breath;
       reachFactor = 0;
       fingerGrip = 0;
@@ -187,21 +179,21 @@ export function HumanNPC({
 
     // Dynamic Torso / Spine forward lean towards board
     const baseLean = isCurrentTurn ? 0.08 : 0;
-    const idleBreath = Math.sin(time * 2.2) * 0.015;
-    const spinePitch = baseLean + reachFactor * 0.38 + idleBreath;
-    const spineZOffset = reachFactor * 1.6; // Shift forward towards table
+    const idleBreath = Math.sin(time * 2.5) * 0.015;
+    const spinePitch = baseLean + reachFactor * 0.36 + idleBreath;
+    const spineZOffset = reachFactor * 1.35; // Shift forward towards table
 
     if (spineGroupRef.current) {
       spineGroupRef.current.rotation.x = spinePitch;
-      spineGroupRef.current.position.z = 0.25 + spineZOffset;
+      spineGroupRef.current.position.z = 0.2 + spineZOffset;
       spineGroupRef.current.position.y = seatSurfaceY;
     }
 
     // Right Shoulder anchor position in root local coordinates
     const shoulderLocal = new THREE.Vector3(
-      1.45,
-      seatSurfaceY + 2.75 - reachFactor * 0.3,
-      0.35 + spineZOffset + Math.sin(spinePitch) * 2.5
+      1.25,
+      seatSurfaceY + 2.4 - reachFactor * 0.25,
+      0.3 + spineZOffset + Math.sin(spinePitch) * 2.1
     );
 
     if (rightShoulderRef.current) {
@@ -226,33 +218,31 @@ export function HumanNPC({
     // 4. Overhand Grip Hand: Palm points DOWN towards the pawn crown
     if (handGroupRef.current) {
       handGroupRef.current.position.copy(targetHandLocal);
-      // Hand natural overhand orientation (palm down facing pawn)
       const toTarget = new THREE.Vector3().subVectors(targetHandLocal, ik.E).normalize();
       const handRotY = Math.atan2(toTarget.x, toTarget.z);
-      handGroupRef.current.rotation.set(0.2, handRotY, 0);
+      handGroupRef.current.rotation.set(0.18, handRotY, 0);
     }
 
     // 5. Animated Fingers clasp / uncurl around pawn
     fingerMeshesRef.current.forEach((finger) => {
       if (finger) {
-        // Natural curl angle around the spherical goti crown
-        finger.rotation.x = 0.4 + fingerGrip * 0.75;
+        finger.rotation.x = 0.35 + fingerGrip * 0.75;
       }
     });
 
     // 6. Head and Eyes look down towards hand and pawn
-    if (headRef.current) {
+    if (headGroupRef.current) {
       if (reachFactor > 0.05) {
-        headRef.current.rotation.x = 0.35 * reachFactor;
-        headRef.current.rotation.y = (targetHandLocal.x > 0 ? 0.12 : -0.12) * reachFactor;
+        headGroupRef.current.rotation.x = 0.32 * reachFactor;
+        headGroupRef.current.rotation.y = (targetHandLocal.x > 0 ? 0.12 : -0.12) * reachFactor;
       } else {
-        headRef.current.rotation.x = THREE.MathUtils.lerp(
-          headRef.current.rotation.x,
-          0.12 + Math.sin(time * 0.8) * 0.04,
+        headGroupRef.current.rotation.x = THREE.MathUtils.lerp(
+          headGroupRef.current.rotation.x,
+          0.1 + Math.sin(time * 0.8) * 0.04,
           delta * 4
         );
-        headRef.current.rotation.y = THREE.MathUtils.lerp(
-          headRef.current.rotation.y,
+        headGroupRef.current.rotation.y = THREE.MathUtils.lerp(
+          headGroupRef.current.rotation.y,
           Math.sin(time * 0.6) * 0.06,
           delta * 4
         );
@@ -260,59 +250,59 @@ export function HumanNPC({
     }
   });
 
-  const skinColor = '#FBD8B5';
+  const skinColor = '#FAD7B5';
   const pantsColor = '#1E293B';
   const hairColor =
     color === 'yellow'
-      ? '#451A03'
+      ? '#3B1A04'
       : color === 'red'
       ? '#0F172A'
       : color === 'green'
-      ? '#1E1B4B'
-      : '#312E81';
+      ? '#132A13'
+      : '#1E1B4B';
 
   return (
     <group ref={rootGroupRef} position={chairPosition} rotation={[0, chairRotationY, 0]}>
       {/* ======================================================== */}
-      {/* 1. Lower Body & Legs (Seated on Chair, Scaled 1.28x)     */}
+      {/* 1. Lower Body & Legs (Seated Ergonomically on Chair)     */}
       {/* ======================================================== */}
-      <group position={[0, seatSurfaceY, 0.25]}>
+      <group position={[0, seatSurfaceY, 0.2]}>
         {/* Hips / Pelvis */}
-        <mesh position={[0, 0.45, 0]} castShadow>
-          <boxGeometry args={[2.5, 0.85, 1.8]} />
+        <mesh position={[0, 0.35, 0]} castShadow>
+          <boxGeometry args={[2.2, 0.75, 1.6]} />
           <meshStandardMaterial color={pantsColor} roughness={0.5} />
         </mesh>
 
-        {/* Thighs extending horizontally forward resting on chair */}
-        {[-0.72, 0.72].map((tx, i) => (
-          <group key={`thigh-${i}`} position={[tx, 0.45, 1.05]}>
+        {/* Thighs extending horizontally forward resting on cushion */}
+        {[-0.65, 0.65].map((tx, i) => (
+          <group key={`thigh-${i}`} position={[tx, 0.35, 0.9]}>
             {/* Horizontal Thigh */}
             <mesh castShadow receiveShadow>
-              <boxGeometry args={[0.95, 0.8, 2.1]} />
+              <boxGeometry args={[0.82, 0.7, 1.8]} />
               <meshStandardMaterial color={pantsColor} roughness={0.5} />
             </mesh>
 
             {/* Knee Joint */}
-            <mesh position={[0, -0.05, 1.1]} castShadow>
-              <sphereGeometry args={[0.46, 16, 16]} />
+            <mesh position={[0, -0.05, 0.95]} castShadow>
+              <sphereGeometry args={[0.4, 16, 16]} />
               <meshStandardMaterial color={pantsColor} roughness={0.5} />
             </mesh>
 
             {/* Vertical Lower Leg / Shin going down to floor */}
-            <mesh position={[0, -2.45, 1.1]} castShadow>
-              <cylinderGeometry args={[0.4, 0.34, 4.8, 16]} />
+            <mesh position={[0, -1.2, 0.95]} castShadow>
+              <cylinderGeometry args={[0.34, 0.28, 2.3, 16]} />
               <meshStandardMaterial color={pantsColor} roughness={0.5} />
             </mesh>
 
-            {/* Sneaker / Shoe resting flat on the floor */}
-            <group position={[0, -4.95, 1.45]}>
+            {/* Designer Sneaker resting flat on the floor */}
+            <group position={[0, -2.45, 1.25]}>
               <mesh castShadow>
-                <boxGeometry args={[0.88, 0.6, 1.7]} />
+                <boxGeometry args={[0.76, 0.5, 1.5]} />
                 <meshStandardMaterial color={theme.primary} roughness={0.3} />
               </mesh>
               {/* White Rubber Sneaker Sole */}
-              <mesh position={[0, -0.26, 0]}>
-                <boxGeometry args={[0.92, 0.14, 1.76]} />
+              <mesh position={[0, -0.22, 0]}>
+                <boxGeometry args={[0.8, 0.12, 1.55]} />
                 <meshStandardMaterial color="#FFFFFF" roughness={0.2} />
               </mesh>
             </group>
@@ -323,75 +313,113 @@ export function HumanNPC({
       {/* ======================================================== */}
       {/* 2. Torso, Head & Left Resting Arm (Pivots at Spine)      */}
       {/* ======================================================== */}
-      <group ref={spineGroupRef} position={[0, seatSurfaceY, 0.25]}>
-        {/* Main Chest & Athletic Hoodie */}
-        <mesh position={[0, 1.6, 0]} castShadow>
-          <boxGeometry args={[2.7, 2.7, 1.6]} />
+      <group ref={spineGroupRef} position={[0, seatSurfaceY, 0.2]}>
+        {/* Main Athletic Streetwear Hoodie */}
+        <mesh position={[0, 1.35, 0]} castShadow>
+          <boxGeometry args={[2.3, 2.3, 1.4]} />
           <meshStandardMaterial
             color={theme.primary}
-            roughness={0.4}
+            roughness={0.35}
             metalness={0.1}
           />
         </mesh>
 
-        {/* White Drawstrings / Zipper Detail */}
-        <mesh position={[0, 1.6, 0.82]}>
-          <boxGeometry args={[0.16, 1.8, 0.05]} />
-          <meshStandardMaterial color="#FFFFFF" roughness={0.2} />
+        {/* Dark Contrast Side Panels */}
+        {[-1.16, 1.16].map((sx, i) => (
+          <mesh key={`panel-${i}`} position={[sx, 1.35, 0]}>
+            <boxGeometry args={[0.04, 2.2, 1.3]} />
+            <meshStandardMaterial color="#0F172A" roughness={0.4} />
+          </mesh>
+        ))}
+
+        {/* White Center Zipper & Drawstring Aglets */}
+        <mesh position={[0, 1.35, 0.72]}>
+          <boxGeometry args={[0.12, 1.6, 0.04]} />
+          <meshStandardMaterial color="#FFFFFF" roughness={0.2} metalness={0.5} />
         </mesh>
 
-        {/* Hoodie Collar Ring */}
-        <mesh position={[0, 2.95, 0.12]} rotation={[Math.PI / 8, 0, 0]}>
-          <torusGeometry args={[0.65, 0.18, 16, 24]} />
+        {/* Hoodie Draped Collar */}
+        <mesh position={[0, 2.5, 0.1]} rotation={[Math.PI / 8, 0, 0]}>
+          <torusGeometry args={[0.55, 0.16, 16, 24]} />
           <meshStandardMaterial color={theme.primary} roughness={0.4} />
         </mesh>
 
         {/* Neck */}
-        <mesh position={[0, 3.2, 0]} castShadow>
-          <cylinderGeometry args={[0.32, 0.34, 0.6, 16]} />
+        <mesh position={[0, 2.7, 0]} castShadow>
+          <cylinderGeometry args={[0.26, 0.28, 0.5, 16]} />
           <meshStandardMaterial color={skinColor} roughness={0.4} />
         </mesh>
 
         {/* ======================================================== */}
-        {/* Head & Stylized Face                                     */}
+        {/* Head with Stylized Hair & Esports Gaming Headset         */}
         {/* ======================================================== */}
-        <group ref={headRef} position={[0, 4.1, 0]}>
+        <group ref={headGroupRef} position={[0, 3.45, 0]}>
           {/* Head Sphere */}
           <mesh castShadow>
-            <sphereGeometry args={[0.85, 32, 32]} />
+            <sphereGeometry args={[0.74, 32, 32]} />
             <meshStandardMaterial color={skinColor} roughness={0.35} />
           </mesh>
 
-          {/* Stylized Modern Hair / Beanie Cap */}
-          <mesh position={[0, 0.26, -0.08]} castShadow>
-            <sphereGeometry args={[0.9, 24, 24]} />
+          {/* Stylized Modern Haircut */}
+          <mesh position={[0, 0.24, -0.06]} castShadow>
+            <sphereGeometry args={[0.78, 24, 24]} />
             <meshStandardMaterial color={hairColor} roughness={0.4} />
           </mesh>
 
-          {/* Two Expressive Stylized Eyes looking down towards board */}
-          {[-0.3, 0.3].map((ex, i) => (
-            <group key={`eye-${i}`} position={[ex, 0.1, 0.76]}>
+          {/* Esports Gaming Headset Headband */}
+          <mesh position={[0, 0.45, 0]}>
+            <torusGeometry args={[0.76, 0.08, 12, 32]} />
+            <meshStandardMaterial color="#0F172A" roughness={0.3} metalness={0.7} />
+          </mesh>
+
+          {/* Glowing Headset Earcups in Theme Color */}
+          {[-0.78, 0.78].map((hx, i) => (
+            <group key={`headset-cup-${i}`} position={[hx, 0.05, 0]}>
+              <mesh castShadow>
+                <cylinderGeometry args={[0.26, 0.26, 0.22, 24]} />
+                <meshStandardMaterial color="#0F172A" roughness={0.3} metalness={0.7} />
+              </mesh>
+              {/* Glowing Accent Ring */}
+              <mesh position={[hx > 0 ? 0.12 : -0.12, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+                <ringGeometry args={[0.15, 0.22, 24]} />
+                <meshStandardMaterial
+                  color={theme.primary}
+                  emissive={theme.primary}
+                  emissiveIntensity={2.0}
+                />
+              </mesh>
+            </group>
+          ))}
+
+          {/* Two Expressive Anime/Pixar-Style Glossy Eyes */}
+          {[-0.26, 0.26].map((ex, i) => (
+            <group key={`eye-${i}`} position={[ex, 0.08, 0.65]}>
               {/* White Sclera */}
               <mesh>
-                <sphereGeometry args={[0.13, 16, 16]} />
+                <sphereGeometry args={[0.12, 16, 16]} />
                 <meshStandardMaterial color="#FFFFFF" roughness={0.1} />
+              </mesh>
+              {/* Colored Iris */}
+              <mesh position={[0, -0.02, 0.06]}>
+                <sphereGeometry args={[0.075, 16, 16]} />
+                <meshStandardMaterial color={theme.primary} roughness={0.1} />
               </mesh>
               {/* Dark Pupil */}
               <mesh position={[0, -0.02, 0.08]}>
-                <sphereGeometry args={[0.075, 16, 16]} />
-                <meshStandardMaterial color="#0F172A" roughness={0.1} />
+                <sphereGeometry args={[0.045, 16, 16]} />
+                <meshStandardMaterial color="#0A0F1D" roughness={0.1} />
               </mesh>
-              {/* Eye Specular Glimmer */}
-              <mesh position={[0.025, 0.025, 0.14]}>
-                <sphereGeometry args={[0.03, 8, 8]} />
+              {/* Glossy Specular Glimmer */}
+              <mesh position={[0.025, 0.025, 0.12]}>
+                <sphereGeometry args={[0.025, 8, 8]} />
                 <meshBasicMaterial color="#FFFFFF" />
               </mesh>
             </group>
           ))}
 
-          {/* Smile / Mouth */}
-          <mesh position={[0, -0.28, 0.77]}>
-            <boxGeometry args={[0.26, 0.05, 0.05]} />
+          {/* Pleasant Confident Smile */}
+          <mesh position={[0, -0.24, 0.66]}>
+            <boxGeometry args={[0.22, 0.04, 0.04]} />
             <meshStandardMaterial color="#7C2D12" roughness={0.3} />
           </mesh>
         </group>
@@ -399,26 +427,22 @@ export function HumanNPC({
         {/* ======================================================== */}
         {/* Left Arm (Resting on Table / Armrest)                    */}
         {/* ======================================================== */}
-        <group position={[-1.5, 2.5, 0]}>
-          {/* Left Shoulder Sphere */}
+        <group position={[-1.3, 2.1, 0]}>
           <mesh castShadow>
-            <sphereGeometry args={[0.44, 16, 16]} />
+            <sphereGeometry args={[0.38, 16, 16]} />
             <meshStandardMaterial color={theme.primary} roughness={0.4} />
           </mesh>
-          {/* Left Upper Arm */}
-          <mesh position={[-0.12, -1.0, 0.3]} rotation={[0.4, 0, 0.15]} castShadow>
-            <cylinderGeometry args={[0.32, 0.28, 2.0, 16]} />
+          <mesh position={[-0.1, -0.85, 0.25]} rotation={[0.4, 0, 0.15]} castShadow>
+            <cylinderGeometry args={[0.26, 0.22, 1.6, 16]} />
             <meshStandardMaterial color={theme.primary} roughness={0.4} />
           </mesh>
-          {/* Left Forearm resting forward on table */}
-          <mesh position={[-0.12, -1.8, 1.25]} rotation={[1.15, 0, 0.15]} castShadow>
-            <cylinderGeometry args={[0.28, 0.25, 1.8, 16]} />
+          <mesh position={[-0.1, -1.5, 0.95]} rotation={[1.1, 0, 0.15]} castShadow>
+            <cylinderGeometry args={[0.23, 0.2, 1.4, 16]} />
             <meshStandardMaterial color={theme.primary} roughness={0.4} />
           </mesh>
-          {/* Left Hand */}
-          <mesh position={[-0.12, -2.15, 2.2]} castShadow>
-            <boxGeometry args={[0.48, 0.24, 0.65]} />
-            <meshStandardMaterial color={skinColor} roughness={0.3} />
+          <mesh position={[-0.1, -1.75, 1.7]} castShadow>
+            <boxGeometry args={[0.4, 0.2, 0.55]} />
+            <meshStandardMaterial color="#FFFFFF" roughness={0.25} />
           </mesh>
         </group>
       </group>
@@ -428,59 +452,59 @@ export function HumanNPC({
       {/* ======================================================== */}
       {/* Right Shoulder Socket Mesh */}
       <mesh ref={rightShoulderRef} castShadow>
-        <sphereGeometry args={[0.44, 16, 16]} />
+        <sphereGeometry args={[0.38, 16, 16]} />
         <meshStandardMaterial color={theme.primary} roughness={0.4} />
       </mesh>
 
-      {/* Upper Arm Cylinder (between Shoulder and Elbow) */}
+      {/* Upper Arm Cylinder */}
       <mesh ref={upperArmMeshRef} castShadow>
-        <cylinderGeometry args={[0.32, 0.28, L1, 16]} />
+        <cylinderGeometry args={[0.26, 0.23, L1, 16]} />
         <meshStandardMaterial color={theme.primary} roughness={0.4} />
       </mesh>
 
       {/* Elbow Joint Sphere */}
       <mesh ref={elbowSphereRef} castShadow>
-        <sphereGeometry args={[0.32, 16, 16]} />
+        <sphereGeometry args={[0.26, 16, 16]} />
         <meshStandardMaterial color={theme.primary} roughness={0.4} />
       </mesh>
 
-      {/* Forearm Cylinder (between Elbow and Hand) */}
+      {/* Forearm Cylinder */}
       <mesh ref={forearmMeshRef} castShadow>
-        <cylinderGeometry args={[0.28, 0.24, L2, 16]} />
+        <cylinderGeometry args={[0.23, 0.2, L2, 16]} />
         <meshStandardMaterial color={theme.primary} roughness={0.4} />
       </mesh>
 
-      {/* Overhand Grasping Hand: positioned directly over pawn crown */}
+      {/* Modern White Gamer Glove: Palm facing DOWN over the pawn crown */}
       <group ref={handGroupRef}>
-        {/* Palm / Back of Hand */}
-        <mesh position={[0, 0.08, 0]} castShadow>
-          <sphereGeometry args={[0.34, 16, 16]} />
-          <meshStandardMaterial color={skinColor} roughness={0.3} />
+        {/* Palm / Back of Glove */}
+        <mesh position={[0, 0.06, 0]} castShadow>
+          <sphereGeometry args={[0.3, 16, 16]} />
+          <meshStandardMaterial color="#FFFFFF" roughness={0.25} />
         </mesh>
-        {/* White Wrist Sleeve Cuff */}
-        <mesh position={[0, 0.24, -0.1]} rotation={[0.4, 0, 0]}>
-          <torusGeometry args={[0.3, 0.08, 12, 24]} />
-          <meshStandardMaterial color="#FFFFFF" roughness={0.3} />
+        {/* Glove Player Theme Trim Band */}
+        <mesh position={[0, 0.18, -0.08]} rotation={[0.4, 0, 0]}>
+          <torusGeometry args={[0.26, 0.06, 12, 24]} />
+          <meshStandardMaterial color={theme.primary} roughness={0.3} />
         </mesh>
 
         {/* 4 Fingers wrapping downwards around the pawn crown */}
-        {[-0.18, -0.06, 0.06, 0.18].map((fx, i) => (
+        {[-0.14, -0.05, 0.05, 0.14].map((fx, i) => (
           <group
             key={`finger-${i}`}
             ref={(el) => (fingerMeshesRef.current[i] = el)}
-            position={[fx, -0.08, 0.16]}
+            position={[fx, -0.06, 0.14]}
           >
-            <mesh position={[0, -0.18, 0.06]} castShadow>
-              <cylinderGeometry args={[0.07, 0.055, 0.42, 8]} />
-              <meshStandardMaterial color={skinColor} roughness={0.3} />
+            <mesh position={[0, -0.15, 0.05]} castShadow>
+              <cylinderGeometry args={[0.06, 0.05, 0.36, 8]} />
+              <meshStandardMaterial color="#FFFFFF" roughness={0.25} />
             </mesh>
           </group>
         ))}
 
-        {/* Opposing Thumb on the side */}
-        <mesh position={[0.26, -0.02, -0.04]} rotation={[-0.3, 0.4, -0.2]} castShadow>
-          <cylinderGeometry args={[0.085, 0.075, 0.38, 8]} />
-          <meshStandardMaterial color={skinColor} roughness={0.3} />
+        {/* Opposing Thumb */}
+        <mesh position={[0.22, -0.02, -0.03]} rotation={[-0.3, 0.4, -0.2]} castShadow>
+          <cylinderGeometry args={[0.075, 0.065, 0.32, 8]} />
+          <meshStandardMaterial color="#FFFFFF" roughness={0.25} />
         </mesh>
       </group>
     </group>

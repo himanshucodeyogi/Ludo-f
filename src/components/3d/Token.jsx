@@ -72,24 +72,33 @@ export function Token({
         posX = start.x;
         posY = start.y;
         posZ = start.z;
+        meshGroup.current.rotation.set(0, 0, 0);
       } else if (p < 0.78) {
         // Phase 2: NPC hand lifts pawn, carries it across the board in high arc
         const t2 = (p - 0.22) / 0.56;
         posX = THREE.MathUtils.lerp(start.x, target.x, t2);
         posZ = THREE.MathUtils.lerp(start.z, target.z, t2);
         // Parabolic arc lift matching hand height
-        posY = THREE.MathUtils.lerp(start.y, target.y, t2) + Math.sin(t2 * Math.PI) * 1.6;
+        posY = THREE.MathUtils.lerp(start.y, target.y, t2) + Math.sin(t2 * Math.PI) * 1.5;
+        
+        // Subtle flight tilt along movement direction
+        const dx = target.x - start.x;
+        const dz = target.z - start.z;
+        const angle = Math.atan2(dx, dz);
+        meshGroup.current.rotation.set(Math.sin(t2 * Math.PI) * 0.15 * Math.cos(angle), 0, -Math.sin(t2 * Math.PI) * 0.15 * Math.sin(angle));
       } else if (p < 0.88) {
-        // Phase 3: NPC hand lowers pawn onto target tile
+        // Phase 3: NPC hand lowers pawn firmly onto target tile (satisfying micro-bounce)
         const t3 = (p - 0.78) / 0.1;
         posX = target.x;
         posZ = target.z;
-        posY = target.y + (1 - t3) * 0.15;
+        posY = target.y + Math.sin(t3 * Math.PI) * 0.08;
+        meshGroup.current.rotation.set(0, 0, 0);
       } else {
         // Phase 4: Placed firmly down; hand releases
         posX = target.x;
         posY = target.y;
         posZ = target.z;
+        meshGroup.current.rotation.set(0, 0, 0);
         activeMove.current = null;
       }
 

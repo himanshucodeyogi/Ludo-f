@@ -12,28 +12,28 @@ import { PLAYER_COLORS } from '../../constants/boardCoordinates';
 
 // Camera viewpoints placing player's home base right in front
 const CAMERA_PERSPECTIVES = {
-  red: [-8.5, 14.5, -8.5],
-  green: [8.5, 14.5, -8.5],
-  yellow: [8.5, 14.5, 8.5],
-  blue: [-8.5, 14.5, 8.5],
+  red: [-8.0, 11.5, -8.0],
+  green: [8.0, 11.5, -8.0],
+  yellow: [8.0, 11.5, 8.0],
+  blue: [-8.0, 11.5, 8.0],
 };
 
 // Chairs arranged at 4 corners facing their respective home base and board center
 const CHAIR_CONFIGS = {
   red: {
-    position: [-9.4, TABLE_FLOOR_Y, -9.4],
+    position: [-8.8, TABLE_FLOOR_Y, -8.8],
     rotationY: Math.PI / 4, // Faces towards [0, 0, 0]
   },
   green: {
-    position: [9.4, TABLE_FLOOR_Y, -9.4],
+    position: [8.8, TABLE_FLOOR_Y, -8.8],
     rotationY: -Math.PI / 4,
   },
   yellow: {
-    position: [9.4, TABLE_FLOOR_Y, 9.4],
+    position: [8.8, TABLE_FLOOR_Y, 8.8],
     rotationY: -Math.PI * 0.75,
   },
   blue: {
-    position: [-9.4, TABLE_FLOOR_Y, 9.4],
+    position: [-8.8, TABLE_FLOOR_Y, 8.8],
     rotationY: Math.PI * 0.75,
   },
 };
@@ -199,7 +199,7 @@ export function Scene({
         <Board localPlayerColor={localPlayer?.color} activeColors={Object.keys(tokens)} />
 
         {/* 3D Wooden Table Underneath the Ludo Board */}
-        <Table boardBottomY={-0.5} />
+        <Table boardBottomY={-0.05} />
 
         {/* 3D Chairs and Seated Human NPCs for active players around the table */}
         {Object.keys(tokens).map((color) => {
