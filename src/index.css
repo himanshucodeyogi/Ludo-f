@@ -6,6 +6,42 @@
   * {
     -webkit-tap-highlight-color: transparent;
   }
+
+  html,
+  body {
+    overscroll-behavior: none;
+  }
+}
+
+/* Full-height that tracks the mobile browser's collapsing URL bar (100vh fallback for older browsers) */
+.app-viewport {
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* HUD padding that clears notches / home indicators on phones */
+.hud-safe {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  padding-left: max(0.75rem, env(safe-area-inset-left));
+  padding-right: max(0.75rem, env(safe-area-inset-right));
+}
+
+@media (min-width: 640px) and (min-height: 501px) {
+  .hud-safe {
+    padding-top: max(1.5rem, env(safe-area-inset-top));
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+    padding-left: max(1.5rem, env(safe-area-inset-left));
+    padding-right: max(1.5rem, env(safe-area-inset-right));
+  }
+}
+
+/* Hide scrollbar on the horizontally scrolling player strip */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 /* Glassmorphism helpers */

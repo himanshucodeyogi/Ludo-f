@@ -6,6 +6,10 @@ export default {
   ],
   theme: {
     extend: {
+      screens: {
+        // Landscape phones: very little vertical room, so the HUD goes compact
+        short: { raw: '(max-height: 500px)' },
+      },
       colors: {
         ludo: {
           red: '#EF4444',

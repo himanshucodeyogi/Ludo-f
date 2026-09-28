@@ -14,7 +14,7 @@ const FACE_ROTATIONS = {
 
 export function Dice({
   diceValue = 1,
-  isRolling = false,
+  rollId = 0,
   canRoll = false,
   onRoll,
   position = [0, 0.5, 0],
@@ -26,17 +26,16 @@ export function Dice({
   const targetRotation = useRef(new THREE.Euler(0, 0, 0));
   const randomSpins = useRef({ x: 0, y: 0, z: 0 });
 
-  // When rolling starts, randomize spin vectors
+  // Every new roll (rollId increments) restarts the toss with fresh spin vectors
   React.useEffect(() => {
-    if (isRolling) {
-      rollProgress.current = 0;
-      randomSpins.current = {
-        x: (Math.random() - 0.5) * 20,
-        y: (Math.random() - 0.5) * 20,
-        z: (Math.random() - 0.5) * 20,
-      };
-    }
-  }, [isRolling]);
+    if (!rollId) return;
+    rollProgress.current = 0;
+    randomSpins.current = {
+      x: (Math.random() - 0.5) * 20,
+      y: (Math.random() - 0.5) * 20,
+      z: (Math.random() - 0.5) * 20,
+    };
+  }, [rollId]);
 
   // Target Euler based on server dice value
   const targetEuler = useMemo(() => {

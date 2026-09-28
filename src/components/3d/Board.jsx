@@ -164,7 +164,7 @@ function BaseCorner({ color, centerCol, centerRow, isOwner = false, isActive = t
             />
           </mesh>
           {isActive && (
-            <mesh position={[0, 0.012, 0]}>
+            <mesh position={[0, 0.012, 0]} rotation={[-Math.PI / 2, 0, 0]}>
               <ringGeometry args={[0.35, 0.5, 32]} />
               <meshBasicMaterial color="#FFFFFF" opacity={0.6} transparent />
             </mesh>

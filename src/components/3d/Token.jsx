@@ -3,6 +3,39 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { COLOR_PALETTE, getToken3DPosition, TOKEN_HEIGHT_Y } from '../../constants/boardCoordinates';
 
+// Number badge textures (drawn on a canvas, so no font download is needed), cached per color + number
+const numberTextureCache = new Map();
+
+function getNumberTexture(color, number) {
+  const key = `${color}-${number}`;
+  if (numberTextureCache.has(key)) return numberTextureCache.get(key);
+
+  const theme = COLOR_PALETTE[color];
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size / 2 - 6, 0, Math.PI * 2);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fill();
+  ctx.lineWidth = 10;
+  ctx.strokeStyle = theme.dark;
+  ctx.stroke();
+
+  ctx.fillStyle = theme.dark;
+  ctx.font = 'bold 84px system-ui, -apple-system, "Segoe UI", Arial, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(number), size / 2, size / 2 + 6);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  numberTextureCache.set(key, texture);
+  return texture;
+}
+
 export function Token({
   color,
   tokenIndex,
@@ -134,7 +167,7 @@ export function Token({
     // Spin and float owner overhead diamond beacon
     if (beaconRef.current) {
       beaconRef.current.rotation.y += delta * 2.5;
-      beaconRef.current.position.y = 0.95 + Math.sin(state.clock.getElapsedTime() * 3 + tokenIndex) * 0.06;
+      beaconRef.current.position.y = 1.6 + Math.sin(state.clock.getElapsedTime() * 3 + tokenIndex) * 0.06;
     }
   });
 
@@ -220,9 +253,22 @@ export function Token({
         </mesh>
       </group>
 
+      {/* Invisible, oversized tap target so selectable pawns are easy to hit with a finger */}
+      {isSelectable && (
+        <mesh position={[0, 0.45, 0]}>
+          <cylinderGeometry args={[0.6, 0.6, 1.2, 12]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
+      )}
+
+      {/* Pawn number badge (1-4), always facing the camera; matches "Pawn N" in the HUD */}
+      <sprite position={[0, 0.98, 0]} scale={[0.46, 0.46, 0.46]}>
+        <spriteMaterial map={getNumberTexture(color, tokenIndex + 1)} toneMapped={false} />
+      </sprite>
+
       {/* Local Player "YOU" Overhead Floating Beacon */}
       {isOwner && (
-        <group ref={beaconRef} position={[0, 0.92, 0]}>
+        <group ref={beaconRef} position={[0, 1.6, 0]}>
           {/* Floating Diamond Indicator */}
           <mesh rotation={[0, Math.PI / 4, 0]}>
             <octahedronGeometry args={[isSelectable ? 0.16 : 0.11, 0]} />

@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useRef } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, ContactShadows } from '@react-three/drei';
 import * as THREE from 'three';
@@ -10,13 +10,29 @@ import { Token } from './Token';
 import { Dice } from './Dice';
 import { PLAYER_COLORS } from '../../constants/boardCoordinates';
 
-// Camera viewpoints placing player's home base right in front
-const CAMERA_PERSPECTIVES = {
-  red: [-8.0, 11.5, -8.0],
-  green: [8.0, 11.5, -8.0],
-  yellow: [8.0, 11.5, 8.0],
-  blue: [-8.0, 11.5, 8.0],
+// Horizontal direction (x, z) from board center towards each player's corner,
+// so the camera sits behind the local player's home base
+const CAMERA_DIRECTIONS = {
+  red: [-1, -1],
+  green: [1, -1],
+  yellow: [1, 1],
+  blue: [-1, 1],
 };
+const CAMERA_ELEVATION = THREE.MathUtils.degToRad(56);
+const CAMERA_BASE_DISTANCE = 23.5;
+
+// Touch devices (phones / tablets) get a lighter render budget: lower pixel ratio and smaller shadow maps
+const IS_TOUCH_DEVICE =
+  typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
+const MAX_DPR = IS_TOUCH_DEVICE ? 1.5 : 2;
+const KEY_SHADOW_MAP = IS_TOUCH_DEVICE ? 1024 : 2048;
+const SPOT_SHADOW_MAP = IS_TOUCH_DEVICE ? 512 : 1024;
+
+// Portrait / narrow screens need the camera further back so the whole board fits the width
+function getCameraDistance(aspect) {
+  if (aspect >= 1.25) return CAMERA_BASE_DISTANCE;
+  return Math.min(CAMERA_BASE_DISTANCE * Math.pow(1.25 / aspect, 0.85), 44);
+}
 
 // Chairs arranged at 4 corners facing their respective home base and board center
 const CHAIR_CONFIGS = {
@@ -38,52 +54,19 @@ const CHAIR_CONFIGS = {
   },
 };
 
-// Overhead ceiling pendant lamp fixture
-function PendantLamp() {
-  return (
-    <group position={[0, 11, 0]}>
-      {/* Ceiling Hanging Cord */}
-      <mesh position={[0, 4.5, 0]}>
-        <cylinderGeometry args={[0.035, 0.035, 9, 12]} />
-        <meshStandardMaterial color="#0F172A" roughness={0.4} />
-      </mesh>
-
-      {/* Modern Matte Black & Brass Lampshade */}
-      <mesh position={[0, 0, 0]} castShadow>
-        <coneGeometry args={[1.75, 1.25, 32, 1, true]} />
-        <meshStandardMaterial
-          color="#0F172A"
-          roughness={0.25}
-          metalness={0.7}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-
-      {/* Glowing Warm Light Bulb */}
-      <mesh position={[0, -0.22, 0]}>
-        <sphereGeometry args={[0.3, 24, 24]} />
-        <meshStandardMaterial
-          color="#FEF08A"
-          emissive="#FDE047"
-          emissiveIntensity={2.5}
-        />
-      </mesh>
-    </group>
-  );
-}
-
 function CameraController({ playerColor }) {
-  const { camera } = useThree();
-  const alignedColor = useRef(null);
+  const camera = useThree((state) => state.camera);
+  const aspect = useThree((state) => state.size.width / state.size.height);
+  // Re-frame only on meaningful aspect changes (rotation / big resize) so we don't fight the user's orbiting
+  const aspectBucket = Math.round(aspect * 10) / 10;
 
   useEffect(() => {
-    if (playerColor && CAMERA_PERSPECTIVES[playerColor] && alignedColor.current !== playerColor) {
-      const [x, y, z] = CAMERA_PERSPECTIVES[playerColor];
-      camera.position.set(x, y, z);
-      camera.lookAt(0, 0, 0);
-      alignedColor.current = playerColor;
-    }
-  }, [playerColor, camera]);
+    const [dx, dz] = CAMERA_DIRECTIONS[playerColor] || CAMERA_DIRECTIONS.red;
+    const distance = getCameraDistance(aspectBucket);
+    const horizontal = (distance * Math.cos(CAMERA_ELEVATION)) / Math.SQRT2;
+    camera.position.set(dx * horizontal, distance * Math.sin(CAMERA_ELEVATION), dz * horizontal);
+    camera.lookAt(0, 0, 0);
+  }, [playerColor, aspectBucket, camera]);
 
   return null;
 }
@@ -94,6 +77,7 @@ export function Scene({
   isMyTurn,
   canRoll,
   isRolling,
+  rollId,
   lastMoveEvent,
   onRollDice,
   onMoveToken,
@@ -138,15 +122,14 @@ export function Scene({
     <div className="w-full h-full relative cursor-grab active:cursor-grabbing">
       <Canvas
         shadows
-        camera={{ position: [0, 16, 12], fov: 45 }}
+        camera={{ position: [0, 17, 12], fov: 45 }}
         gl={{ antialias: true, alpha: false }}
-        dpr={[1, 2]}
+        dpr={[1, MAX_DPR]}
       >
         <color attach="background" args={['#090D16']} />
 
         {/* Adjust camera perspective to player's home quadrant */}
         <CameraController playerColor={localPlayer?.color} />
-
         {/* ======================================================== */}
         {/* Warm Studio / Lounge Atmospheric Lighting               */}
         {/* ======================================================== */}
@@ -159,8 +142,8 @@ export function Scene({
           intensity={1.15}
           color="#FFF7ED"
           castShadow
-          shadow-mapSize-width={2048}
-          shadow-mapSize-height={2048}
+          shadow-mapSize-width={KEY_SHADOW_MAP}
+          shadow-mapSize-height={KEY_SHADOW_MAP}
           shadow-camera-far={60}
           shadow-camera-left={-22}
           shadow-camera-right={22}
@@ -176,8 +159,6 @@ export function Scene({
           color="#93C5FD"
         />
 
-        {/* Hanging Pendant Lamp Fixture */}
-        <PendantLamp />
 
         {/* Focused Warm Tabletop Spotlight */}
         <spotLight
@@ -187,8 +168,8 @@ export function Scene({
           penumbra={0.65}
           color="#FEF3C7"
           castShadow
-          shadow-mapSize-width={1024}
-          shadow-mapSize-height={1024}
+          shadow-mapSize-width={SPOT_SHADOW_MAP}
+          shadow-mapSize-height={SPOT_SHADOW_MAP}
           shadow-bias={-0.0001}
         />
 
@@ -257,7 +238,7 @@ export function Scene({
         <Dice
           position={[0, 0.5, 0]}
           diceValue={roomState.diceValue}
-          isRolling={isRolling}
+          rollId={rollId}
           canRoll={canRoll}
           onRoll={onRollDice}
         />
@@ -277,7 +258,7 @@ export function Scene({
           enablePan={false}
           maxPolarAngle={Math.PI / 2.2} // Prevent viewing from underneath
           minDistance={10}
-          maxDistance={28}
+          maxDistance={46}
           dampingFactor={0.05}
         />
       </Canvas>

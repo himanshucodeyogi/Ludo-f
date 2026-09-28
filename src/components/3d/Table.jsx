@@ -52,7 +52,7 @@ export function Table({ boardBottomY = -0.05, floorY = TABLE_FLOOR_Y }) {
       </mesh>
 
       {/* Brushed Golden Brass Inlay Trim Ring */}
-      <mesh position={[0, boardBottomY + 0.006, 0]} receiveShadow>
+      <mesh position={[0, boardBottomY + 0.006, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <ringGeometry args={[8.7, 8.85, 64]} />
         <meshStandardMaterial
           color="#D4AF37"
@@ -132,12 +132,12 @@ export function Table({ boardBottomY = -0.05, floorY = TABLE_FLOOR_Y }) {
         </group>
       ))}
 
-      {/* Cross-stretcher bar between legs */}
-      <mesh position={[0, legY - 0.4, 0]} receiveShadow>
+      {/* Cross-stretcher bars between legs (cylinders are vertical by default, so lay them along X and Z) */}
+      <mesh position={[0, legY - 0.4, 0]} rotation={[0, 0, Math.PI / 2]} receiveShadow>
         <cylinderGeometry args={[0.15, 0.15, legSpread * 2.1, 16]} />
         <meshStandardMaterial color="#140C06" roughness={0.4} />
       </mesh>
-      <mesh position={[0, legY - 0.4, 0]} rotation={[0, Math.PI / 2, 0]} receiveShadow>
+      <mesh position={[0, legY - 0.4, 0]} rotation={[Math.PI / 2, 0, 0]} receiveShadow>
         <cylinderGeometry args={[0.15, 0.15, legSpread * 2.1, 16]} />
         <meshStandardMaterial color="#140C06" roughness={0.4} />
       </mesh>
